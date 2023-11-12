@@ -1,0 +1,19 @@
+services:
+  nginx:
+    build:
+      context: ./nginx
+
+    restart: unless-stopped
+
+    volumes:
+      - ./app/certbot/www/:/var/www/certbot:ro
+
+    ports:
+      - 80:80
+
+  # certbot:
+  #   image: certbot/certbot:latest
+
+  #   volumes:
+  #     - ./app/certbot/www:/var/www/certbot:rw
+  #     - ./app/certbot/conf:/etc/letsencrypt/:rw
