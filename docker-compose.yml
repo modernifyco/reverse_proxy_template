@@ -11,9 +11,9 @@ services:
     ports:
       - 80:80
 
-  # certbot:
-  #   image: certbot/certbot:latest
+  certbot:
+    image: certbot/certbot:latest
 
-  #   volumes:
-  #     - ./app/certbot/www:/var/www/certbot:rw
-  #     - ./app/certbot/conf:/etc/letsencrypt/:rw
+    volumes:
+      - ./app/certbot/www:/var/www/certbot:rw
+      - ./app/certbot/conf:/etc/letsencrypt/:rw
