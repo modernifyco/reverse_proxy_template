@@ -7,13 +7,15 @@ services:
 
     volumes:
       - ./app/certbot/www/:/var/www/certbot:ro
+      - ./app/nginx/sites-enabled/:/etc/nginx/sites-enabled:ro
 
     ports:
       - 80:80
+      - 443:443
 
   certbot:
     image: certbot/certbot:latest
 
     volumes:
       - ./app/certbot/www:/var/www/certbot:rw
-      - ./app/certbot/conf:/etc/letsencrypt/:rw
+      - ./app/certbot/letsencrypt:/etc/letsencrypt/:rw
