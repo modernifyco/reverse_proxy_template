@@ -89,7 +89,7 @@ const checkObtainCertificate = async ({
     .join(" ");
 
   execSync(
-    `docker-compose run --rm certbot certonly --webroot --webroot-path /var/www/certbot/ --dry-run ${domainParams}`
+    `docker compose run --rm certbot certonly --webroot --webroot-path /var/www/certbot/ --dry-run ${domainParams}`
   );
 };
 
