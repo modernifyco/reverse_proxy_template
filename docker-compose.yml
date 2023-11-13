@@ -11,10 +11,6 @@ services:
       - ./app/nginx/sites-enabled/:/etc/nginx/sites-enabled:ro
       - ./app/nginx/logs:/var/log/nginx
 
-    ports:
-      - 80:80
-      - 443:443
-
     network_mode: host
 
   certbot:
