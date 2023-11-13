@@ -9,6 +9,7 @@ services:
       - ./app/certbot/www/:/var/www/certbot:ro
       - ./app/certbot/letsencrypt:/etc/letsencrypt:ro
       - ./app/nginx/sites-enabled/:/etc/nginx/sites-enabled:ro
+      - ./app/nginx/logs:/var/log/nginx
 
     ports:
       - 80:80
