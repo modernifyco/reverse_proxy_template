@@ -1,12 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import { execSync } from "node:child_process";
 
 import inquirer from "inquirer";
-import isValidDomain from "is-valid-domain";
-import { validate as isValidEmail } from "email-validator";
+// import isValidDomain from "is-valid-domain";
+// import { validate as isValidEmail } from "email-validator";
+import isFQDN from "validator/lib/isFQDN.js";
+import isEmail from "validator/lib/isEmail.js";
+import isURL from "validator/lib/isURL.js";
 
-type WebsiteInfo = {
+type WebsiteConfig = {
   /**
    * Domain name (can be subdomain)
    */
@@ -18,7 +22,7 @@ type WebsiteInfo = {
   emailAddress: string;
 };
 
-const getWebsiteInfo = async (): Promise<WebsiteInfo> => {
+const getWebsiteConfig = async (): Promise<WebsiteConfig> => {
   const answers = await inquirer.prompt([
     {
       name: "domain",
@@ -26,10 +30,10 @@ const getWebsiteInfo = async (): Promise<WebsiteInfo> => {
       type: "input",
 
       validate: (val) =>
-        isValidDomain(val, {
-          wildcard: false,
-          subdomain: true,
-          allowUnicode: false,
+        isFQDN.default(val, {
+          allow_trailing_dot: false,
+          allow_underscores: false,
+          allow_wildcard: true,
         }),
     },
     {
@@ -44,7 +48,7 @@ const getWebsiteInfo = async (): Promise<WebsiteInfo> => {
       message: "Please enter your email address: ",
       type: "input",
 
-      validate: (val) => isValidEmail(val),
+      validate: (val) => isEmail.default(val),
     },
   ]);
 
@@ -73,7 +77,7 @@ const createInitialNginxConfig = async ({
 
   // replace variables
   const nginxWebsiteConfig = nginxConfigTemplate
-    .split("$DOMAIN")
+    .split("$SERVER_NAME")
     .join(domains.join(" "));
 
   // write to disk
@@ -118,14 +122,122 @@ const obtainLetsEncryptCertificate = async ({
   execSync(command, { stdio: "inherit" });
 };
 
+type ProxyConfig = {
+  host: string;
+};
+
+const getProxyConfig = async (): Promise<ProxyConfig> => {
+  const answers = await inquirer.prompt([
+    {
+      name: "host",
+      message: "Please enter Proxy host (e.g. http://127.0.0.1:3000): ",
+      type: "input",
+
+      validate: (val) => isURL.default(val),
+    },
+  ]);
+
+  return { host: answers["host"] };
+};
+
+const createNginxSubdomainRedirectConfig = async ({
+  domainName,
+  subdomains,
+}: {
+  domainName: string;
+  subdomains: Array<string>;
+}) => {
+  // read template
+  const nginxConfigTemplate = fs.readFileSync(
+    path.join(
+      process.cwd(),
+      "template",
+      "nginx_website_subdomain_redirect.conf"
+    ),
+    "utf8"
+  );
+
+  // replace variables
+  const nginxSubdomainRedirectConfig = nginxConfigTemplate
+    .split("$SERVER_NAME")
+    .join(subdomains.join(" "))
+    .split("$DOMAIN_NAME")
+    .join(domainName);
+
+  return nginxSubdomainRedirectConfig;
+};
+
+const createNginxWebsiteConfig = async ({
+  websiteConfig,
+  proxyConfig,
+}: {
+  websiteConfig: WebsiteConfig;
+  proxyConfig: ProxyConfig;
+}) => {
+  // read template
+  const nginxConfigTemplate = fs.readFileSync(
+    path.join(process.cwd(), "template", "nginx_website.conf"),
+    "utf8"
+  );
+
+  const serverName = websiteConfig.domains.join(" ");
+  const domainName = websiteConfig.domains[0];
+
+  // replace variables
+  let nginxWebsiteConfig = nginxConfigTemplate
+    .split("$SERVER_NAME")
+    .join(serverName)
+    .split("$DOMAIN_NAME")
+    .join(domainName)
+    .split("$PROXY_HOST")
+    .join(proxyConfig.host);
+
+  if (websiteConfig.domains.length > 1) {
+    const subdomains = [...websiteConfig.domains];
+    subdomains.shift();
+
+    nginxWebsiteConfig = [
+      nginxWebsiteConfig,
+      await createNginxSubdomainRedirectConfig({
+        domainName,
+        subdomains,
+      }),
+    ].join(`${os.EOL}${os.EOL}`);
+  }
+
+  // write to disk
+  fs.writeFileSync(
+    path.join(
+      process.cwd(),
+      "app",
+      "nginx",
+      "sites-enabled",
+      `${domainName}.conf`
+    ),
+    nginxWebsiteConfig,
+    "utf-8"
+  );
+};
+
 (async () => {
-  const { domains, emailAddress } = await getWebsiteInfo();
+  // get initial website configuration
+  const websiteConfig = await getWebsiteConfig();
 
   // obtain certificate for the first time
+  const { domains, emailAddress } = websiteConfig;
   await createInitialNginxConfig({ domains });
   await restartNginx();
   await obtainLetsEncryptCertificate({ domains, emailAddress, dryRun: true });
   await obtainLetsEncryptCertificate({ domains, emailAddress, dryRun: false });
+
+  // create final configuration
+  const proxyConfig = await getProxyConfig();
+  await createNginxWebsiteConfig({ websiteConfig, proxyConfig });
+
+  // restart nginx
+  await restartNginx();
+
+  // add crontab
 })()
   .then(() => {
     console.info("Done");
