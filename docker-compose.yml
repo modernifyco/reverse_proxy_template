@@ -26,4 +26,3 @@ services:
     volumes:
       - ./app/certbot/www:/var/www/certbot
       - ./app/certbot/letsencrypt:/etc/letsencrypt
-      - ./app/certbot/letsencrypt.log:/var/log/letsencrypt/letsencrypt.log
