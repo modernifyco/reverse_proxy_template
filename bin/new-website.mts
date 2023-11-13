@@ -95,7 +95,7 @@ const createInitialNginxConfig = async ({
 };
 
 const restartNginx = async () => {
-  execSync("docker compose restart nginx", { stdio: "inherit" });
+  execSync("docker compose exec nginx nginx -s reload", { stdio: "inherit" });
 };
 
 const obtainLetsEncryptCertificate = async ({
