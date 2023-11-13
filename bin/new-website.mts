@@ -10,7 +10,7 @@ type WebsiteInfo = {
   /**
    * Domain name (can be subdomain)
    */
-  domain: string;
+  domains: Array<string>;
 
   /**
    * Email address
@@ -23,6 +23,7 @@ const getWebsiteInfo = async (): Promise<WebsiteInfo> => {
     {
       name: "domain",
       message: "Please enter domain name (or subdomain) FQDN: ",
+      type: "input",
 
       validate: (val) =>
         isValidDomain(val, {
@@ -32,15 +33,29 @@ const getWebsiteInfo = async (): Promise<WebsiteInfo> => {
         }),
     },
     {
+      name: "addWWW",
+      message: "Add www to the domain? ",
+      type: "confirm",
+
+      default: true,
+    },
+    {
       name: "email",
       message: "Please enter your email address: ",
+      type: "input",
 
       validate: (val) => isValidEmail(val),
     },
   ]);
 
+  const domains = [answers["domain"]];
+
+  if (answers["addWWW"] === true) {
+    domains.push(`www.${domains[0]}`);
+  }
+
   return {
-    domain: answers["domain"],
+    domains,
     emailAddress: answers["email"],
   };
 };
@@ -76,7 +91,7 @@ const createInitialNginxConfig = async ({
 };
 
 const restartNginx = async () => {
-  execSync("docker compose restart nginx");
+  execSync("docker compose restart nginx", { stdio: "inherit" });
 };
 
 const checkObtainCertificate = async ({
@@ -89,14 +104,15 @@ const checkObtainCertificate = async ({
     .join(" ");
 
   execSync(
-    `docker compose run --rm certbot certonly --webroot --webroot-path /var/www/certbot/ --dry-run ${domainParams}`
+    `docker compose run --rm certbot certonly --webroot --webroot-path /var/www/certbot/ --dry-run ${domainParams}`,
+    { stdio: "inherit" }
   );
 };
 
 (async () => {
-  const websiteInfo = await getWebsiteInfo();
-  const domains = [websiteInfo.domain, `www.${websiteInfo.domain}`];
+  const { domains } = await getWebsiteInfo();
 
+  // obtain certificate for the first time
   await createInitialNginxConfig({ domains });
   await restartNginx();
   await checkObtainCertificate({ domains });
