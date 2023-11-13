@@ -94,28 +94,38 @@ const restartNginx = async () => {
   execSync("docker compose restart nginx", { stdio: "inherit" });
 };
 
-const checkObtainCertificate = async ({
+const obtainLetsEncryptCertificate = async ({
   domains,
+  emailAddress,
+
+  dryRun,
 }: {
   domains: Array<string>;
+  emailAddress: string;
+
+  dryRun: boolean;
 }) => {
   const domainParams = domains
     .map((domainName) => `-d ${domainName}`)
     .join(" ");
 
-  execSync(
-    `docker compose run --rm certbot certonly --webroot --webroot-path /var/www/certbot/ --dry-run ${domainParams}`,
-    { stdio: "inherit" }
-  );
+  let command = `docker compose run --rm certbot certonly --email ${emailAddress} --agree-tos --no-eff-email --webroot --webroot-path /var/www/certbot/ ${domainParams}`;
+
+  if (dryRun === true) {
+    command = [command, "--dry-run"].join(" ");
+  }
+
+  execSync(command, { stdio: "inherit" });
 };
 
 (async () => {
-  const { domains } = await getWebsiteInfo();
+  const { domains, emailAddress } = await getWebsiteInfo();
 
   // obtain certificate for the first time
   await createInitialNginxConfig({ domains });
   await restartNginx();
-  await checkObtainCertificate({ domains });
+  await obtainLetsEncryptCertificate({ domains, emailAddress, dryRun: true });
+  await obtainLetsEncryptCertificate({ domains, emailAddress, dryRun: false });
 })()
   .then(() => {
     console.info("Done");
