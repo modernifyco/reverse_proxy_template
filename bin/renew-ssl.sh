@@ -2,6 +2,6 @@
 
 date "+%Y-%m-%d %H:%M:%S"
 
-docker compose run --no-TTY --rm certbot renew 2>&1
+docker compose run --no-TTY --rm certbot renew
 
 echo "-=-=-=-=-=-=-=-=-"
