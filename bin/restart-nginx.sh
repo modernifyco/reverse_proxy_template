@@ -2,6 +2,6 @@
 
 date "+%Y-%m-%d %H:%M:%S"
 
-docker compose exec nginx nginx -s reload 2>&1
+docker compose exec --no-TTY nginx nginx -s reload 2>&1
 
 echo "-=-=-=-=-=-=-=-=-"
